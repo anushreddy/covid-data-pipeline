@@ -8,15 +8,39 @@ Created on Sat Apr  4 14:13:34 2020
 # pip install pymongo[srv]
 import requests
 from pymongo import MongoClient
+import os
 
-# connection strings to connect to mongo db collection
-client = MongoClient("mongodb+srv://admin:admin@cluster0-skgzv.mongodb.net/test?retryWrites=true&w=majority")
-db = client.get_database("covid_db")
-records = db.covid_collection
+
+# function to read database credentials from a file
+def read_db_creds(fileName):
+    THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(THIS_FOLDER, fileName)
+    with open (file_path, "r") as db_file:
+        data = db_file.readlines()
+        db_creds = []
+        for elem in data:
+            db_creds.extend(elem.rstrip('\n').split('\n'))
+    if db_creds is None:
+        print("There is no data in the file. Please check the file!")
+    else:
+        db_file.close()
+        return db_creds
+
+# function to connect to mongo db    
+def connect_db(db_creds):
+    client = MongoClient(db_creds[0])
+    db = client.get_database(db_creds[1])
+    records = db.covid_collection
+    if records is None:
+        print("There is no data in the Database!")
+    else:
+        return records 
 
 # read file to access api credentials
 def read_api_creds(fileName):
-    with open (fileName, "r") as myfile:
+    THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(THIS_FOLDER, fileName)
+    with open (file_path, "r") as myfile:
         data = myfile.readlines()
         ref_data = []
         for elem in data:
@@ -24,6 +48,7 @@ def read_api_creds(fileName):
     if ref_data is None:
         print("There is no data in the file. Please check the file!")
     else:
+        myfile.close()
         return ref_data
 
 # function to call the api and convert response json to python dictionary
@@ -51,6 +76,8 @@ def export_to_mongodb(dict_data):
     #    print(key + ":", dict_data['data']['covid19Stats'][0][key])
         records.insert_one(key)
     
+db_creds = read_db_creds("database.txt")
+records = connect_db(db_creds)
 api_data = read_api_creds("api_credentials.txt")
 dict_data = call_api(api_data)
 export_to_mongodb(dict_data)
