@@ -8,6 +8,7 @@ Created on Thu Apr  9 15:24:17 2020
 import requests
 import mysql.connector
 import os
+import csv
 
 # function to read database credentials from a file
 def read_db_creds(fileName):
@@ -73,16 +74,33 @@ def call_api(api_data):
 def export_to_mysql(dict_data, mydb):
     for mydict in dict_data['data']['covid19Stats']:
         columns = ', '.join("`" + x + "`" for x in mydict.keys())
-        values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in mydict.values())
-        sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % ('covid_data', columns, values)
+        values = ', '.join("'" + str(x).replace("'", "''") + "'" for x in mydict.values())
+        sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % ('covid_stats', columns, values)
         mycursor = mydb.cursor()
         mycursor.execute(sql)
-    
-    mydb.commit() 
+    try:
+        mydb.commit() 
+        print("Success: Exported to MySQL!")
+    except:
+        print("Error: Unable to Export")
 #    print(mycursor.rowcount, "was inserted.")
+
+def export_to_csv(dict_data):
+    csv_file = "covid_data.csv"
+    try:
+        with open(csv_file, 'w') as csvfile:
+            writer = csv.DictWriter(csvfile, dict_data['data']['covid19Stats'][0].keys())
+            writer.writeheader()
+            for data in dict_data['data']['covid19Stats']:
+                writer.writerow(data)
+        print("Success: Exported to CSV file!")
+    except IOError:
+        print("Error: Unable to Export. I/O Error")
         
 db_creds = read_db_creds("database.txt")
 mydb = connect_db(db_creds)
 api_data = read_api_creds("api_credentials.txt")
 dict_data = call_api(api_data)
+#exporting data to mysql and csv
 export_to_mysql(dict_data, mydb)
+export_to_csv(dict_data)
